@@ -62,10 +62,8 @@ import PostgREST.Statements       (callProcStatement,
                                    createReadStatement,
                                    createWriteStatement)
 import PostgREST.Types
---import Protolude                  hiding (Proxy, intercalate, toS)
-import Protolude                  hiding (Proxy, intercalate, toS, trace)
+import Protolude                  hiding (Proxy, intercalate, toS)
 import Protolude.Conv             (toS)
---import Debug.Trace                (trace)
 
 postgrest :: LogSetup -> IORef AppConfig -> IORef (Maybe DbStructure) -> P.Pool -> IO UTCTime -> IO () -> Application
 postgrest logS refConf refDbStructure pool getTime connWorker =
@@ -133,10 +131,9 @@ app dbStructure proc cols conf apiRequest =
           case readSqlParts tSchema tName of
             Left errorResponse -> return errorResponse
             Right (q, cq, bField, _) -> do
-            
               case contentType of
-                CTApplicationSQL -> return (responseLBS status200 (catMaybes [Just $ toHeader contentType]) (toS q))
-                _ -> do
+                CTApplicationSQL -> return $ responseLBS status200 (catMaybes [Just $ toHeader contentType]) (toS q)  -- if the value of accept header is `application/sql`, just return the query `q` - no need to do even a single extra step
+                _ -> do -- for all other values of accept header, let the library work as default
                   let cQuery = if estimatedCount
                                  then limitedQuery cq ((+ 1) <$> maxRows) -- LIMIT maxRows + 1 so we can determine below that maxRows was surpassed
                                  else cq

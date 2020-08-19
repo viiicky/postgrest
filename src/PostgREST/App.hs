@@ -62,8 +62,10 @@ import PostgREST.Statements       (callProcStatement,
                                    createReadStatement,
                                    createWriteStatement)
 import PostgREST.Types
-import Protolude                  hiding (Proxy, intercalate, toS)
+--import Protolude                  hiding (Proxy, intercalate, toS)
+import Protolude                  hiding (Proxy, intercalate, toS, trace)
 import Protolude.Conv             (toS)
+import Debug.Trace                (trace)
 
 postgrest :: LogSetup -> IORef AppConfig -> IORef (Maybe DbStructure) -> P.Pool -> IO UTCTime -> IO () -> Application
 postgrest logS refConf refDbStructure pool getTime connWorker =
@@ -134,11 +136,13 @@ app dbStructure proc cols conf apiRequest =
               let cQuery = if estimatedCount
                              then limitedQuery cq ((+ 1) <$> maxRows) -- LIMIT maxRows + 1 so we can determine below that maxRows was surpassed
                              else cq
-                  stm = createReadStatement q cQuery (contentType == CTSingularJSON) shouldCount
+--                  stm = createReadStatement q cQuery (contentType == CTSingularJSON) shouldCount
+                  stm = createReadStatement q cQuery (trace ("contentType: " ++ show contentType) contentType == CTSingularJSON) shouldCount
                         (contentType == CTTextCSV) bField pgVer
                   explStm = createExplainStatement cq
               row <- H.statement () stm
-              let (tableTotal, queryTotal, _ , body, gucHeaders, gucStatus) = row
+--              let (tableTotal, queryTotal, _ , body, gucHeaders, gucStatus) = row
+              let (tableTotal, queryTotal, _ , _, gucHeaders, gucStatus) = row
                   gucs =  (,) <$> gucHeaders <*> gucStatus
               case gucs of
                 Left err -> return $ errorResponseFor err
@@ -155,7 +159,8 @@ app dbStructure proc cols conf apiRequest =
                                   Just $ toHeader contentType, Just contentRange,
                                   Just $ contentLocationH tName (iCanonicalQS apiRequest), profileH])
                                 (unwrapGucHeader <$> ghdrs)
-                      rBody = if headersOnly then mempty else toS body
+--                      rBody = if headersOnly then mempty else toS body
+                      rBody = if headersOnly then mempty else toS q
                   return $
                     if contentType == CTSingularJSON && queryTotal /= 1
                       then errorResponseFor . singularityError $ queryTotal
